@@ -1,0 +1,8 @@
+{
+  "/api/availability/route": "app/api/availability/route.js",
+  "/api/courts/route": "app/api/courts/route.js",
+  "/api/events/route": "app/api/events/route.js",
+  "/reservations/page": "app/reservations/page.js",
+  "/location/page": "app/location/page.js",
+  "/events/page": "app/events/page.js"
+}

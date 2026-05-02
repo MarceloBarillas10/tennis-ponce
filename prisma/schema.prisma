@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Court {
+  id           Int           @id @default(autoincrement())
+  name         String
+  description  String?
+  position     String        // "top" | "bottom"
+  reservations Reservation[]
+  eventCourts  EventCourt[]
+  matches      Match[]
+}
+
+model Reservation {
+  id          Int      @id @default(autoincrement())
+  courtId     Int
+  court       Court    @relation(fields: [courtId], references: [id])
+  date        String   // "YYYY-MM-DD"
+  startHour   Int      // 7–20
+  playerName  String
+  playerEmail String?
+  playerPhone String?
+  createdAt   DateTime @default(now())
+}
+
+model Event {
+  id          Int          @id @default(autoincrement())
+  name        String
+  description String?
+  startDate   String       // "YYYY-MM-DD"
+  endDate     String       // "YYYY-MM-DD"
+  status      String       // "upcoming" | "active" | "past"
+  eventCourts EventCourt[]
+  matches     Match[]
+}
+
+model EventCourt {
+  id      Int   @id @default(autoincrement())
+  eventId Int
+  event   Event @relation(fields: [eventId], references: [id])
+  courtId Int
+  court   Court @relation(fields: [courtId], references: [id])
+}
+
+model Match {
+  id       Int     @id @default(autoincrement())
+  eventId  Int
+  event    Event   @relation(fields: [eventId], references: [id])
+  courtId  Int?
+  court    Court?  @relation(fields: [courtId], references: [id])
+  round    Int     // 1 = QF, 2 = SF, 3 = Final
+  position Int     // position within round (1-based)
+  player1  String?
+  player2  String?
+  score1   Int?
+  score2   Int?
+  status   String  // "pending" | "active" | "completed"
+}
