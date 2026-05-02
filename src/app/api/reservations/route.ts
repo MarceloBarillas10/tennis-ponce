@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import supabase from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
@@ -9,42 +9,59 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Validate hour range
   if (startHour < 7 || startHour > 20) {
     return NextResponse.json({ error: 'Invalid hour' }, { status: 400 })
   }
 
   // Check for existing reservation (race-condition guard)
-  const existing = await prisma.reservation.findFirst({
-    where: { courtId, date, startHour },
-  })
+  const { data: existing } = await supabase
+    .from('Reservation')
+    .select('id')
+    .eq('courtId', courtId)
+    .eq('date', date)
+    .eq('startHour', startHour)
+    .maybeSingle()
+
   if (existing) {
     return NextResponse.json({ error: 'Court already reserved for this time' }, { status: 409 })
   }
 
-  const reservation = await prisma.reservation.create({
-    data: {
+  const { data: reservation, error } = await supabase
+    .from('Reservation')
+    .insert({
       courtId,
       date,
       startHour,
       playerName,
       playerPhone,
       playerEmail: playerEmail ?? null,
-    },
-  })
+    })
+    .select()
+    .single()
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   return NextResponse.json({ reservation }, { status: 201 })
 }
 
 export async function GET(request: NextRequest) {
   const date = request.nextUrl.searchParams.get('date')
-  const where = date ? { date } : {}
 
-  const reservations = await prisma.reservation.findMany({
-    where,
-    include: { court: true },
-    orderBy: [{ date: 'asc' }, { startHour: 'asc' }],
-  })
+  let query = supabase
+    .from('Reservation')
+    .select('*, court:Court(*)')
+    .order('date', { ascending: true })
+    .order('startHour', { ascending: true })
+
+  if (date) query = query.eq('date', date)
+
+  const { data: reservations, error } = await query
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   return NextResponse.json({ reservations })
 }

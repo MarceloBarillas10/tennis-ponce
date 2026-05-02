@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import supabase from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   const date = request.nextUrl.searchParams.get('date')
@@ -14,17 +14,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'hour must be between 7 and 20' }, { status: 400 })
   }
 
-  const [allCourts, reservations] = await Promise.all([
-    prisma.court.findMany({ orderBy: { id: 'asc' } }),
-    prisma.reservation.findMany({
-      where: { date, startHour: hour },
-      select: { courtId: true },
-    }),
-  ])
+  const [{ data: allCourts, error: courtsError }, { data: reservations, error: resError }] =
+    await Promise.all([
+      supabase.from('Court').select('*').order('id', { ascending: true }),
+      supabase.from('Reservation').select('courtId').eq('date', date).eq('startHour', hour),
+    ])
 
-  const reservedIds = new Set(reservations.map((r) => r.courtId))
+  if (courtsError) return NextResponse.json({ error: courtsError.message }, { status: 500 })
+  if (resError) return NextResponse.json({ error: resError.message }, { status: 500 })
 
-  const courts = allCourts.map((court) => ({
+  const reservedIds = new Set((reservations ?? []).map((r) => r.courtId))
+
+  const courts = (allCourts ?? []).map((court) => ({
     court,
     available: !reservedIds.has(court.id),
   }))
